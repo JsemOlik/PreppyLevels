@@ -2,7 +2,7 @@ package jsemolik.dev.preppyLevels.storage;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import org.slf4j.Logger;
+import org.bukkit.plugin.Plugin;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -13,14 +13,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class MySQLStorageProvider implements StorageProvider {
-    private final Logger logger;
+    private final Plugin plugin;
     private final jsemolik.dev.preppyLevels.config.PluginConfig.MySQLConfig config;
     private HikariDataSource dataSource;
     private final ExecutorService executor;
 
-    public MySQLStorageProvider(jsemolik.dev.preppyLevels.config.PluginConfig.MySQLConfig config, Logger logger) {
+    public MySQLStorageProvider(jsemolik.dev.preppyLevels.config.PluginConfig.MySQLConfig config, Plugin plugin) {
         this.config = config;
-        this.logger = logger;
+        this.plugin = plugin;
         this.executor = Executors.newCachedThreadPool();
     }
 
@@ -47,9 +47,10 @@ public class MySQLStorageProvider implements StorageProvider {
                         ")"
                     );
                 }
-                logger.info("MySQL database initialized successfully");
+                plugin.getLogger().info("MySQL database initialized successfully");
             } catch (Exception e) {
-                logger.error("Failed to initialize MySQL database", e);
+                plugin.getLogger().severe("Failed to initialize MySQL database: " + e.getMessage());
+                e.printStackTrace();
                 throw new RuntimeException(e);
             }
         }, executor);
@@ -85,7 +86,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 }
                 return null;
             } catch (Exception e) {
-                logger.error("Failed to load player data for " + playerId, e);
+                plugin.getLogger().severe("Failed to load player data for " + playerId + ": " + e.getMessage());
+                e.printStackTrace();
                 return null;
             }
         }, executor);
@@ -108,7 +110,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 stmt.setLong(7, playerData.getXp());
                 stmt.executeUpdate();
             } catch (Exception e) {
-                logger.error("Failed to save player data for " + playerData.getPlayerId(), e);
+                plugin.getLogger().severe("Failed to save player data for " + playerData.getPlayerId() + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }, executor);
     }
@@ -123,7 +126,8 @@ public class MySQLStorageProvider implements StorageProvider {
                 stmt.setString(1, playerId.toString());
                 return stmt.executeQuery().next();
             } catch (Exception e) {
-                logger.error("Failed to check if player exists: " + playerId, e);
+                plugin.getLogger().severe("Failed to check if player exists: " + playerId + ": " + e.getMessage());
+                e.printStackTrace();
                 return false;
             }
         }, executor);

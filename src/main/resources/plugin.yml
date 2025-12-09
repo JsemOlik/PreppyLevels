@@ -1,0 +1,14 @@
+name: PreppyLevels
+version: 1.0-SNAPSHOT
+main: jsemolik.dev.preppyLevels.PreppyLevels
+api-version: 1.20
+author: Oliver Steiner
+description: A leveling plugin with customizable XP system, multiple storage backends, and API support
+softdepend: [PlaceholderAPI]
+
+commands:
+  level:
+    description: Check your current level and XP
+    aliases: [levels, lvl]
+    usage: /level
+

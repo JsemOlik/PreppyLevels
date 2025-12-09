@@ -1,77 +1,55 @@
 package jsemolik.dev.preppyLevels;
 
-import com.velocitypowered.api.event.Subscribe;
-import com.velocitypowered.api.event.connection.DisconnectEvent;
-import com.velocitypowered.api.event.player.ServerConnectedEvent;
-import com.velocitypowered.api.proxy.Player;
-import org.slf4j.Logger;
+import io.papermc.paper.event.player.AsyncChatEvent;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerCommandPreprocessEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
-public class AutoXpHandler {
+public class AutoXpHandler implements Listener {
     private final PreppyLevels plugin;
-    private final Logger logger;
-    private final ScheduledExecutorService scheduler;
     private final ConcurrentHashMap<UUID, Long> playTime = new ConcurrentHashMap<>();
     private final ConcurrentHashMap<UUID, Long> lastChatTime = new ConcurrentHashMap<>();
+    private BukkitRunnable playTimeTask;
 
     public AutoXpHandler(PreppyLevels plugin) {
         this.plugin = plugin;
-        this.logger = plugin.getLogger();
-        this.scheduler = Executors.newScheduledThreadPool(1);
-        
-        // Start playtime tracking
-        scheduler.scheduleAtFixedRate(this::updatePlayTime, 60, 60, TimeUnit.SECONDS);
+        startPlayTimeTracking();
     }
 
-    @Subscribe
-    public void onServerConnected(ServerConnectedEvent event) {
-        Player player = event.getPlayer();
-        UUID playerId = player.getUniqueId();
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        String playerName = event.getPlayer().getName();
         
         // Give join XP
-        int joinXp = plugin.getConfig().getAutoXpConfig().getXpForTask("join");
+        int joinXp = plugin.getPluginConfig().getAutoXpConfig().getXpForTask("join");
         if (joinXp > 0) {
-            plugin.getLevelManager().addXp(playerId, player.getUsername(), joinXp);
+            plugin.getLevelManager().addXp(playerId, playerName, joinXp);
         }
         
         // Start tracking playtime
         playTime.put(playerId, System.currentTimeMillis());
     }
 
-    @Subscribe
-    public void onDisconnect(DisconnectEvent event) {
+    @EventHandler
+    public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
         playTime.remove(playerId);
         lastChatTime.remove(playerId);
     }
 
-    private void updatePlayTime() {
-        long currentTime = System.currentTimeMillis();
-        int timeXp = plugin.getConfig().getAutoXpConfig().getXpForTask("time-played");
+    @EventHandler
+    public void onPlayerChat(AsyncChatEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        String playerName = event.getPlayer().getName();
         
-        if (timeXp > 0) {
-            for (Player player : plugin.getServer().getAllPlayers()) {
-                UUID playerId = player.getUniqueId();
-                Long lastUpdate = playTime.get(playerId);
-                
-                if (lastUpdate != null) {
-                    long timeSinceLastUpdate = (currentTime - lastUpdate) / 1000 / 60; // minutes
-                    if (timeSinceLastUpdate >= 1) {
-                        plugin.getLevelManager().addXp(playerId, player.getUsername(), timeXp);
-                        playTime.put(playerId, currentTime);
-                    }
-                }
-            }
-        }
-    }
-
-    public void onChatMessage(UUID playerId, String playerName) {
-        int chatXp = plugin.getConfig().getAutoXpConfig().getXpForTask("chat");
+        int chatXp = plugin.getPluginConfig().getAutoXpConfig().getXpForTask("chat");
         if (chatXp > 0) {
             // Prevent spam - only give XP once per 10 seconds
             long lastChat = lastChatTime.getOrDefault(playerId, 0L);
@@ -82,15 +60,47 @@ public class AutoXpHandler {
         }
     }
 
-    public void onCommand(UUID playerId, String playerName) {
-        int commandXp = plugin.getConfig().getAutoXpConfig().getXpForTask("command");
+    @EventHandler
+    public void onPlayerCommand(PlayerCommandPreprocessEvent event) {
+        UUID playerId = event.getPlayer().getUniqueId();
+        String playerName = event.getPlayer().getName();
+        
+        int commandXp = plugin.getPluginConfig().getAutoXpConfig().getXpForTask("command");
         if (commandXp > 0) {
             plugin.getLevelManager().addXp(playerId, playerName, commandXp);
         }
     }
 
+    private void startPlayTimeTracking() {
+        int timeXp = plugin.getPluginConfig().getAutoXpConfig().getXpForTask("time-played");
+        
+        if (timeXp > 0) {
+            playTimeTask = new BukkitRunnable() {
+                @Override
+                public void run() {
+                    long currentTime = System.currentTimeMillis();
+                    for (org.bukkit.entity.Player player : org.bukkit.Bukkit.getOnlinePlayers()) {
+                        UUID playerId = player.getUniqueId();
+                        Long lastUpdate = playTime.get(playerId);
+                        
+                        if (lastUpdate != null) {
+                            long timeSinceLastUpdate = (currentTime - lastUpdate) / 1000 / 60; // minutes
+                            if (timeSinceLastUpdate >= 1) {
+                                plugin.getLevelManager().addXp(playerId, player.getName(), timeXp);
+                                playTime.put(playerId, currentTime);
+                            }
+                        }
+                    }
+                }
+            };
+            playTimeTask.runTaskTimer(plugin, 1200L, 1200L); // Every 60 seconds (1200 ticks)
+        }
+    }
+
     public void shutdown() {
-        scheduler.shutdown();
+        if (playTimeTask != null) {
+            playTimeTask.cancel();
+        }
     }
 }
 

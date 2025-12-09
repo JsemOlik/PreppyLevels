@@ -53,7 +53,7 @@ public class PreppyLevelsAPI {
         return plugin.getLevelManager().getPlayerData(playerId)
             .thenApply(data -> {
                 if (data == null) {
-                    return plugin.getConfig().getXpRequiredForLevel(2);
+                    return (long) plugin.getPluginConfig().getXpRequiredForLevel(2);
                 }
                 return plugin.getLevelManager().getXpForNextLevel(data);
             });

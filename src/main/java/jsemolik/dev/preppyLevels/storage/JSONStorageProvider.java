@@ -2,7 +2,7 @@ package jsemolik.dev.preppyLevels.storage;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
-import org.slf4j.Logger;
+import org.bukkit.plugin.Plugin;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -13,13 +13,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class JSONStorageProvider implements StorageProvider {
-    private final Logger logger;
+    private final Plugin plugin;
     private final Path dataDirectory;
     private final Gson gson;
     private final ExecutorService executor;
 
-    public JSONStorageProvider(Logger logger, Path dataDirectory) {
-        this.logger = logger;
+    public JSONStorageProvider(Plugin plugin, Path dataDirectory) {
+        this.plugin = plugin;
         this.dataDirectory = dataDirectory;
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.executor = Executors.newCachedThreadPool();
@@ -34,9 +34,10 @@ public class JSONStorageProvider implements StorageProvider {
         return CompletableFuture.runAsync(() -> {
             try {
                 Files.createDirectories(dataDirectory.resolve("players"));
-                logger.info("JSON storage initialized successfully");
+                plugin.getLogger().info("JSON storage initialized successfully");
             } catch (IOException e) {
-                logger.error("Failed to initialize JSON storage", e);
+                plugin.getLogger().severe("Failed to initialize JSON storage: " + e.getMessage());
+                e.printStackTrace();
                 throw new RuntimeException(e);
             }
         }, executor);
@@ -67,7 +68,8 @@ public class JSONStorageProvider implements StorageProvider {
                     data.xp
                 );
             } catch (Exception e) {
-                logger.error("Failed to load player data for " + playerId, e);
+                plugin.getLogger().severe("Failed to load player data for " + playerId + ": " + e.getMessage());
+                e.printStackTrace();
                 return null;
             }
         }, executor);
@@ -88,7 +90,8 @@ public class JSONStorageProvider implements StorageProvider {
                 
                 Files.writeString(file, gson.toJson(data));
             } catch (Exception e) {
-                logger.error("Failed to save player data for " + playerData.getPlayerId(), e);
+                plugin.getLogger().severe("Failed to save player data for " + playerData.getPlayerId() + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }, executor);
     }

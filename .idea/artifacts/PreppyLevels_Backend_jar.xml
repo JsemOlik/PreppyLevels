@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="PreppyLevels-Backend:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/PreppyLevels_Backend_jar</output-path>
+    <root id="archive" name="PreppyLevels-Backend.jar">
+      <element id="module-output" name="PreppyLevels-Backend" />
+    </root>
+  </artifact>
+</component>

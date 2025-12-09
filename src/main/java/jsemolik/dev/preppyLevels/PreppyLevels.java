@@ -1,98 +1,99 @@
 package jsemolik.dev.preppyLevels;
 
-import com.google.inject.Inject;
-import com.velocitypowered.api.event.Subscribe;
-import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
-import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
-import com.velocitypowered.api.plugin.Plugin;
-import com.velocitypowered.api.proxy.ProxyServer;
+import org.bukkit.Bukkit;
+import org.bukkit.plugin.java.JavaPlugin;
 import jsemolik.dev.preppyLevels.config.ConfigLoader;
 import jsemolik.dev.preppyLevels.config.PluginConfig;
+import jsemolik.dev.preppyLevels.placeholders.PreppyLevelsPlaceholders;
 import jsemolik.dev.preppyLevels.storage.StorageProvider;
 import jsemolik.dev.preppyLevels.storage.StorageFactory;
-import org.slf4j.Logger;
 
 import java.nio.file.Path;
 
-@Plugin(id = "preppylevels", name = "PreppyLevels", version = "1.0-SNAPSHOT", 
-        description = "A leveling plugin for Velocity proxy with customizable XP system", 
-        url = "jsemolik.dev", authors = {"Oliver Steiner"})
-public class PreppyLevels {
-
-    @Inject
-    private Logger logger;
+public class PreppyLevels extends JavaPlugin {
     
-    @Inject
-    private ProxyServer server;
-    
-    @Inject
-    @com.google.inject.name.Named("dataDirectory")
-    private Path dataDirectory;
-
     private PluginConfig config;
     private StorageProvider storageProvider;
     private LevelManager levelManager;
     private PreppyLevelsAPI api;
     private AutoXpHandler autoXpHandler;
+    private XpBarUpdater xpBarUpdater;
 
-    @Subscribe
-    public void onProxyInitialization(ProxyInitializeEvent event) {
-        logger.info("Initializing PreppyLevels...");
+    @Override
+    public void onEnable() {
+        getLogger().info("Initializing PreppyLevels...");
         
         try {
             // Load configuration
-            ConfigLoader configLoader = new ConfigLoader(logger, dataDirectory.resolve("config.yml"));
+            Path dataFolder = getDataFolder().toPath();
+            ConfigLoader configLoader = new ConfigLoader(this, dataFolder.resolve("config.yml"));
             config = configLoader.loadConfig();
             
             // Initialize storage
-            storageProvider = StorageFactory.createStorageProvider(config, logger, dataDirectory);
+            storageProvider = StorageFactory.createStorageProvider(config, this, dataFolder);
             storageProvider.initialize().thenRun(() -> {
-                logger.info("Storage provider initialized");
+                getLogger().info("Storage provider initialized");
                 
-                // Initialize level manager
+                // Initialize level manager and API (these are just object creation, safe on any thread)
                 levelManager = new LevelManager(this, config);
-                
-                // Initialize API
                 api = new PreppyLevelsAPI(this);
                 
-                // Initialize auto XP handler if enabled
-                if (config.getAutoXpConfig() != null && config.getAutoXpConfig().isEnabled()) {
-                    autoXpHandler = new AutoXpHandler(this);
-                    server.getEventManager().register(this, autoXpHandler);
-                    logger.info("Auto XP handler enabled");
-                }
-                
-                logger.info("PreppyLevels has been enabled!");
+                // All Bukkit API calls must be on the main thread
+                Bukkit.getScheduler().runTask(this, () -> {
+                    // Initialize XP bar updater
+                    xpBarUpdater = new XpBarUpdater(this);
+                    xpBarUpdater.start();
+                    
+                    // Initialize auto XP handler if enabled
+                    if (config.getAutoXpConfig() != null && config.getAutoXpConfig().isEnabled()) {
+                        autoXpHandler = new AutoXpHandler(this);
+                        getServer().getPluginManager().registerEvents(autoXpHandler, this);
+                        getLogger().info("Auto XP handler enabled");
+                    }
+                    
+                    // Register commands
+                    LevelCommand levelCommand = new LevelCommand(this);
+                    getCommand("level").setExecutor(levelCommand);
+                    getCommand("level").setTabCompleter(levelCommand);
+                    
+                    // Register PlaceholderAPI expansion if available
+                    if (getServer().getPluginManager().getPlugin("PlaceholderAPI") != null) {
+                        new PreppyLevelsPlaceholders(this).register();
+                        getLogger().info("PlaceholderAPI expansion registered!");
+                    }
+                    
+                    getLogger().info("PreppyLevels has been enabled!");
+                });
             }).exceptionally(throwable -> {
-                logger.error("Failed to initialize PreppyLevels", throwable);
+                getLogger().severe("Failed to initialize PreppyLevels: " + throwable.getMessage());
+                throwable.printStackTrace();
                 return null;
             });
         } catch (Exception e) {
-            logger.error("Failed to initialize PreppyLevels", e);
+            getLogger().severe("Failed to initialize PreppyLevels: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    @Subscribe
-    public void onProxyShutdown(ProxyShutdownEvent event) {
-        logger.info("Shutting down PreppyLevels...");
+    @Override
+    public void onDisable() {
+        getLogger().info("Shutting down PreppyLevels...");
+        if (xpBarUpdater != null) {
+            xpBarUpdater.stop();
+        }
+        if (autoXpHandler != null) {
+            autoXpHandler.shutdown();
+        }
         if (storageProvider != null) {
             storageProvider.shutdown().join();
         }
         if (levelManager != null) {
             levelManager.clearCache();
         }
-        logger.info("PreppyLevels has been disabled!");
+        getLogger().info("PreppyLevels has been disabled!");
     }
 
-    public Logger getLogger() {
-        return logger;
-    }
-
-    public ProxyServer getServer() {
-        return server;
-    }
-
-    public PluginConfig getConfig() {
+    public PluginConfig getPluginConfig() {
         return config;
     }
 
@@ -107,4 +108,18 @@ public class PreppyLevels {
     public PreppyLevelsAPI getAPI() {
         return api;
     }
+
+    /**
+     * Get the PreppyLevelsAPI instance from the plugin
+     * This is a convenience method for other plugins to access the API
+     * @return The PreppyLevelsAPI instance, or null if the plugin is not enabled
+     */
+    public static PreppyLevelsAPI getAPIInstance() {
+        PreppyLevels plugin = JavaPlugin.getPlugin(PreppyLevels.class);
+        if (plugin != null && plugin.isEnabled()) {
+            return plugin.getAPI();
+        }
+        return null;
+    }
 }
+

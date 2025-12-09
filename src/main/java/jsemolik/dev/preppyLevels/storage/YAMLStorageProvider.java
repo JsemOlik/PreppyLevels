@@ -1,7 +1,7 @@
 package jsemolik.dev.preppyLevels.storage;
 
 import org.yaml.snakeyaml.Yaml;
-import org.slf4j.Logger;
+import org.bukkit.plugin.Plugin;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -14,13 +14,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class YAMLStorageProvider implements StorageProvider {
-    private final Logger logger;
+    private final Plugin plugin;
     private final Path dataDirectory;
     private final Yaml yaml;
     private final ExecutorService executor;
 
-    public YAMLStorageProvider(Logger logger, Path dataDirectory) {
-        this.logger = logger;
+    public YAMLStorageProvider(Plugin plugin, Path dataDirectory) {
+        this.plugin = plugin;
         this.dataDirectory = dataDirectory;
         this.yaml = new Yaml();
         this.executor = Executors.newCachedThreadPool();
@@ -35,9 +35,10 @@ public class YAMLStorageProvider implements StorageProvider {
         return CompletableFuture.runAsync(() -> {
             try {
                 Files.createDirectories(dataDirectory.resolve("players"));
-                logger.info("YAML storage initialized successfully");
+                plugin.getLogger().info("YAML storage initialized successfully");
             } catch (IOException e) {
-                logger.error("Failed to initialize YAML storage", e);
+                plugin.getLogger().severe("Failed to initialize YAML storage: " + e.getMessage());
+                e.printStackTrace();
                 throw new RuntimeException(e);
             }
         }, executor);
@@ -67,7 +68,8 @@ public class YAMLStorageProvider implements StorageProvider {
                     ((Number) data.getOrDefault("xp", 0)).longValue()
                 );
             } catch (Exception e) {
-                logger.error("Failed to load player data for " + playerId, e);
+                plugin.getLogger().severe("Failed to load player data for " + playerId + ": " + e.getMessage());
+                e.printStackTrace();
                 return null;
             }
         }, executor);
@@ -88,7 +90,8 @@ public class YAMLStorageProvider implements StorageProvider {
                 
                 yaml.dump(data, Files.newBufferedWriter(file));
             } catch (Exception e) {
-                logger.error("Failed to save player data for " + playerData.getPlayerId(), e);
+                plugin.getLogger().severe("Failed to save player data for " + playerData.getPlayerId() + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }, executor);
     }

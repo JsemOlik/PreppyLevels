@@ -1,7 +1,7 @@
 package jsemolik.dev.preppyLevels.storage;
 
 import org.h2.jdbcx.JdbcConnectionPool;
-import org.slf4j.Logger;
+import org.bukkit.plugin.Plugin;
 
 import java.nio.file.Path;
 import java.sql.Connection;
@@ -13,14 +13,14 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class H2StorageProvider implements StorageProvider {
-    private final Logger logger;
+    private final Plugin plugin;
     private final Path dataDirectory;
     private final String dbFile;
     private JdbcConnectionPool connectionPool;
     private final ExecutorService executor;
 
-    public H2StorageProvider(jsemolik.dev.preppyLevels.config.PluginConfig.H2Config config, Logger logger, Path dataDirectory) {
-        this.logger = logger;
+    public H2StorageProvider(jsemolik.dev.preppyLevels.config.PluginConfig.H2Config config, Plugin plugin, Path dataDirectory) {
+        this.plugin = plugin;
         this.dataDirectory = dataDirectory;
         this.dbFile = config.getFile();
         this.executor = Executors.newCachedThreadPool();
@@ -43,9 +43,10 @@ public class H2StorageProvider implements StorageProvider {
                         ")"
                     );
                 }
-                logger.info("H2 database initialized successfully");
+                plugin.getLogger().info("H2 database initialized successfully");
             } catch (Exception e) {
-                logger.error("Failed to initialize H2 database", e);
+                plugin.getLogger().severe("Failed to initialize H2 database: " + e.getMessage());
+                e.printStackTrace();
                 throw new RuntimeException(e);
             }
         }, executor);
@@ -81,7 +82,8 @@ public class H2StorageProvider implements StorageProvider {
                 }
                 return null;
             } catch (Exception e) {
-                logger.error("Failed to load player data for " + playerId, e);
+                plugin.getLogger().severe("Failed to load player data for " + playerId + ": " + e.getMessage());
+                e.printStackTrace();
                 return null;
             }
         }, executor);
@@ -100,7 +102,8 @@ public class H2StorageProvider implements StorageProvider {
                 stmt.setLong(4, playerData.getXp());
                 stmt.executeUpdate();
             } catch (Exception e) {
-                logger.error("Failed to save player data for " + playerData.getPlayerId(), e);
+                plugin.getLogger().severe("Failed to save player data for " + playerData.getPlayerId() + ": " + e.getMessage());
+                e.printStackTrace();
             }
         }, executor);
     }
@@ -115,7 +118,8 @@ public class H2StorageProvider implements StorageProvider {
                 stmt.setString(1, playerId.toString());
                 return stmt.executeQuery().next();
             } catch (Exception e) {
-                logger.error("Failed to check if player exists: " + playerId, e);
+                plugin.getLogger().severe("Failed to check if player exists: " + playerId + ": " + e.getMessage());
+                e.printStackTrace();
                 return false;
             }
         }, executor);

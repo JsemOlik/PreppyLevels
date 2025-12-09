@@ -1,0 +1,71 @@
+# PreppyLevels Configuration
+
+# Storage type: MYSQL, H2, SQLITE, YAML, JSON
+storage-type: H2
+
+# MySQL Configuration (only used if storage-type is MYSQL)
+mysql:
+  host: localhost
+  port: 3306
+  database: preppylevels
+  username: root
+  password: password
+  pool-size: 10
+
+# H2 Configuration (only used if storage-type is H2)
+h2:
+  file: preppylevels.db
+
+# SQLite Configuration (only used if storage-type is SQLITE)
+sqlite:
+  file: preppylevels.db
+
+# XP Requirements per level
+# Format: level: xp-required
+# Level 1 requires 100 XP, Level 2 requires 200 XP, etc.
+# If a level is not specified, it will use the last defined increment pattern
+xp-requirements:
+  1: 100
+  2: 200
+  3: 300
+  4: 400
+  5: 500
+  # After level 5, each level requires 100 more XP than the previous
+  # You can specify more levels or use a formula
+
+# Default XP requirement increment (used when level not specified)
+default-xp-increment: 100
+
+# Automatic XP gain settings
+auto-xp:
+  # Enable automatic XP gain
+  enabled: true
+  
+  # XP gain amounts for different tasks
+  tasks:
+    # Chat messages (per message)
+    chat: 1
+    
+    # Time played (per minute)
+    time-played: 5
+    
+    # Commands executed (per command)
+    command: 2
+    
+    # Server join
+    join: 10
+
+# Messages
+messages:
+  xp-gained: "&a+{xp} XP &7({current}/{needed} to level {next})"
+  level-up: "&6&lLEVEL UP! &eYou are now level {level}!"
+  xp-needed: "&7You need {xp} more XP to reach level {next}"
+
+# XP Bar Settings
+xp-bar:
+  # Update interval in ticks (20 ticks = 1 second)
+  update-interval: 20
+  
+  # Show level in XP bar
+  show-level: true
+
